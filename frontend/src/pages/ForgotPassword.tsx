@@ -1,0 +1,159 @@
+//Forgot Password Page
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { forgotPassword } from "../services/AuthService";
+import { Mail, AlertCircle, Loader2 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+
+interface ForgotForm {
+  email: string;
+}
+
+export const ForgotPassword = () => {
+  const [form, setForm] = useState<ForgotForm>({
+    email: "",
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const navigate = useNavigate();
+
+  const handleInputChange = (field: keyof ForgotForm, value: string) => {
+    setForm({ ...form, [field]: value });
+    if (error) setError(null);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
+      setError("Please enter a valid email address");
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const response = await forgotPassword(form.email);
+      const data = await response.json();
+      if (response.ok && data.success) {
+        setSuccess(`Reset link sent to ${form.email}. Check your inbox!`);
+        setForm({ email: "" }); // Clear form
+      } else {
+        setError(data.message || "Failed to send reset email");
+      }
+    } catch (err: any) {
+      setError(
+        err?.response?.data?.message ||
+          "Failed to send reset email. Please try again."
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 flex items-center justify-center py-8">
+      <div className="container mx-auto px-4">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="max-w-md mx-auto bg-white/80 backdrop-blur-md rounded-2xl shadow-xl border border-green-100 p-8"
+        >
+          {/* Header */}
+          <div className="text-center mb-8">
+            <div className="mx-auto w-16 h-16 bg-gradient-to-r from-green-500 to-emerald-600 rounded-full flex items-center justify-center mb-4 shadow-lg">
+              <Mail className="w-8 h-8 text-white" />
+            </div>
+            <h2 className="text-2xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent mb-2">
+              Forgot Password
+            </h2>
+            <p className="text-gray-600">
+              Enter your email to receive a reset link
+            </p>
+          </div>
+
+          {/* Form */}
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="relative">
+              <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                <Mail className="w-4 h-4 text-gray-400" />
+                Email
+              </label>
+              <input
+                type="email"
+                placeholder="Enter your email"
+                value={form.email}
+                onChange={(e) => handleInputChange("email", e.target.value)}
+                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all bg-gray-50/50"
+                required
+              />
+            </div>
+
+            {/* Error Message */}
+            <AnimatePresence>
+              {error && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="flex items-center gap-2 text-red-600 text-sm bg-red-50 border border-red-200 rounded-lg p-3"
+                  role="alert"
+                >
+                  <AlertCircle size={16} />
+                  {error}
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Success Message */}
+            <AnimatePresence>
+              {success && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="flex items-center gap-2 text-green-600 text-sm bg-green-50 border border-green-200 rounded-lg p-3"
+                  role="alert"
+                >
+                  <Mail size={16} />
+                  {success}
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Submit Button */}
+            <motion.button
+              type="submit"
+              disabled={loading}
+              whileTap={{ scale: 0.95 }}
+              className="w-full bg-gradient-to-r from-green-600 to-emerald-600 text-white py-4 rounded-xl font-semibold text-lg shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  Sending Link...
+                </>
+              ) : (
+                "Send Reset Link"
+              )}
+            </motion.button>
+
+            {/* Back to Login */}
+            <div className="text-center">
+              <button
+                type="button"
+                onClick={() => navigate("/login")}
+                className="text-sm text-gray-600 hover:text-green-600 font-medium transition-colors"
+              >
+                Back to Sign In
+              </button>
+            </div>
+          </form>
+        </motion.div>
+      </div>
+    </div>
+  );
+};
