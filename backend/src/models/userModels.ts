@@ -80,10 +80,15 @@ UserSchema.pre("save", async function (next) {
   next();
 });
 
+// In src/models/userModels.ts - Updated getSignedJwtToken method
 UserSchema.methods.getSignedJwtToken = function () {
-  return jwt.sign({ id: this._id }, process.env.JWT_SECRET as string, {
-    expiresIn: process.env.JWT_EXPIRE || "7d",
-  });
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error("JWT_SECRET environment variable is not defined");
+  }
+  return jwt.sign({ id: this._id }, secret, { 
+    expiresIn: process.env.JWT_EXPIRE || "7d", 
+  } as jwt.SignOptions); 
 };
 
 // Instance method to compare password
