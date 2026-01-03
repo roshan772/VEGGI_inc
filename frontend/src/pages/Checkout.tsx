@@ -48,8 +48,8 @@ interface ShippingForm {
   country: string;
 }
 
-// Edited: API_BASE = root URL only (no /api/v1) – append /api/v1 in all calls to avoid double path
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000/api/v1";
+const BACKEND_URL = API_BASE.replace("/api/v1", "");
 
 export default function Checkout() {
   const [form, setForm] = useState<ShippingForm>({
@@ -173,8 +173,7 @@ export default function Checkout() {
         const orderId = orderRes.order._id;
 
         // Step 2 - Generate PayHere hash (new API call)
-        const hashResponse = await fetch(`${API_BASE}/api/v1/payments/hash`, {
-          // Edited: Full path: root + /api/v1/payments/hash
+        const hashResponse = await fetch(`${API_BASE}/payments/hash`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
@@ -198,7 +197,7 @@ export default function Checkout() {
             merchant_id: hashData.merchantId,
             return_url: `${window.location.origin}/order/${orderId}?status=success`,
             cancel_url: `${window.location.origin}/order/${orderId}?status=cancel`,
-            notify_url: `${API_BASE}/api/v1/payments/notify`, // Edited: Full path for webhook
+            notify_url: `${BACKEND_URL}/api/v1/payments/notify`,
 
             order_id: hashData.orderId || orderId,
             items: cartItems
@@ -220,8 +219,7 @@ export default function Checkout() {
           window.payhere.onCompleted = async (response: any) => {
             console.log("Payment completed:", response);
             // Update order status on backend
-            await fetch(`${API_BASE}/api/v1/order/${orderId}/pay`, {
-              // Edited: Full path
+            await fetch(`${API_BASE}/order/${orderId}/pay`, {
               method: "PUT",
               headers: { "Content-Type": "application/json" },
               credentials: "include",
@@ -230,6 +228,7 @@ export default function Checkout() {
                 paymentId: response.payment_id,
               }),
             });
+
             clearCart();
             navigate(`/order/${orderId}`);
           };
