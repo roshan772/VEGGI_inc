@@ -48,11 +48,8 @@ interface ShippingForm {
   country: string;
 }
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000/api/v1";
-// API_BASE = https://veggiinc-production.up.railway.app/api/v1 (in production)
-
-const BACKEND_URL = API_BASE.replace("/api/v1", "");
-// BACKEND_URL = https://veggiinc-production.up.railway.app
+// Edited: API_BASE = root URL (no /api/v1) – append /api/v1 in all calls for consistency
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 export default function Checkout() {
   const [form, setForm] = useState<ShippingForm>({
@@ -79,6 +76,7 @@ export default function Checkout() {
   useEffect(() => {
     loadPayHereSDK();
   }, []);
+
   // Edited: New state for payment method selection (default COD)
   const [paymentMethod, setPaymentMethod] = useState<"cod" | "card">("cod");
 
@@ -113,6 +111,13 @@ export default function Checkout() {
       return;
     }
 
+    // Edited: Check if user is logged in (required for order/userId)
+    if (!user) {
+      setError("Please log in to checkout");
+      navigate("/login");
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -129,94 +134,117 @@ export default function Checkout() {
     const taxPrice = 0; // Calculate as needed
     const totalPrice = itemsPrice + shippingPrice + taxPrice;
 
-    const orderPayload = {
-      orderItems,
-      shippingInfo: form,
-      paymentInfo: { id: "PENDING", status: "Pending" }, // No change: Set to "PENDING" for PayHere flow
-      itemsPrice,
-      taxPrice,
-      shippingPrice,
-      totalPrice,
-    };
-
+    // Edited: Branch logic based on payment method
     try {
-      // No change: Step 1 - Create pending order on backend
-      const orderRes = await createOrder(orderPayload);
-      const orderId = orderRes.order._id;
-
-      const hashResponse = await fetch(`${API_BASE}/payments/hash`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          amount: totalPrice,
-          userId: user?.id, // No change: Use user.id from AuthContext
-          orderItems, // Pass for backend reference
-        }),
-      });
-      if (!hashResponse.ok) throw new Error("Failed to generate payment hash");
-      const hashData = await hashResponse.json();
-
-      // No change: Step 3 - Initialize PayHere payment (use window.payhere)
-      if (typeof window !== "undefined" && window.payhere) {
-        const paymentConfig = {
-          sandbox: true, // No change: Set to false for production
-          merchant_id: hashData.merchantId,
-          return_url: `${window.location.origin}/order/${orderId}?status=success`,
-          cancel_url: `${window.location.origin}/order/${orderId}?status=cancel`,
-          notify_url: `${BACKEND_URL}/api/v1/payments/notify`,
-
-          order_id: hashData.orderId || orderId,
-          items: cartItems
-            .map((item) => `${item.name} x ${item.quantity}`)
-            .join(", "),
-          currency: "LKR",
-          amount: totalPrice.toFixed(2),
-          hash: hashData.hash,
-          first_name: user?.name.split(" ")[0] || "Customer",
-          last_name: user?.name.split(" ").slice(1).join(" ") || "",
-          email: user?.email || "",
-          phone: form.phoneNo,
-          address: form.address,
-          city: form.city,
-          country: form.country,
+      if (paymentMethod === "cod") {
+        // Option 1: Normal COD flow
+        const orderPayload = {
+          orderItems,
+          shippingInfo: form,
+          paymentInfo: { id: "COD", status: "Pending" },
+          itemsPrice,
+          taxPrice,
+          shippingPrice,
+          totalPrice,
         };
 
-        // No change: Set callbacks for PayHere
-        window.payhere.onCompleted = async (response: any) => {
-          console.log("Payment completed:", response);
-          // No change: Update order status on backend
-          await fetch(`${BACKEND_URL}/api/v1/order/${orderId}/pay`, {
-            // Edited: Absolute URL for consistency
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              status: "paid",
-              paymentId: response.payment_id,
-            }),
-          });
-          clearCart();
-          navigate(`/order/${orderId}`);
-        };
-
-        window.payhere.onDismissed = () => {
-          console.log("Payment dismissed");
-          // Optional: Update to "cancelled"
-          navigate("/cart");
-        };
-
-        window.payhere.onError = (error: any) => {
-          console.error("Payment error:", error);
-          setError("Payment failed. Please try again.");
-        };
-
-        // No change: Start PayHere popup
-        window.payhere.startPayment(paymentConfig);
+        // Edited: Use API_BASE + /api/v1 for consistency
+        const res = await createOrder(orderPayload); // Assume createOrder uses api.post("/api/v1/orders")
+        clearCart(); // Clear cart after successful order
+        navigate(`/order/${res.order._id}`);
       } else {
-        throw new Error("PayHere SDK not loaded. Please refresh the page.");
+        // Option 2: PayHere card payment flow
+        const orderPayload = {
+          orderItems,
+          shippingInfo: form,
+          paymentInfo: { id: "PENDING", status: "Pending" },
+          itemsPrice,
+          taxPrice,
+          shippingPrice,
+          totalPrice,
+        };
+
+        // Step 1 - Create pending order on backend
+        const orderRes = await createOrder(orderPayload);
+        const orderId = orderRes.order._id;
+
+        // Step 2 - Generate PayHere hash (new API call)
+        const hashResponse = await fetch(`${API_BASE}/api/v1/payments/hash`, { // Edited: Full path: root + /api/v1/payments/hash
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            amount: totalPrice,
+            userId: user.id, // Safe after login check
+            orderItems, // Pass for backend reference
+          }),
+        });
+        if (!hashResponse.ok) {
+          const errText = await hashResponse.text();
+          console.error("Hash error:", hashResponse.status, errText);
+          throw new Error(`Payment hash failed: ${hashResponse.status}`);
+        }
+        const hashData = await hashResponse.json();
+
+        // Step 3 - Initialize PayHere payment (use window.payhere)
+        if (typeof window !== "undefined" && window.payhere) {
+          const paymentConfig = {
+            sandbox: true, // Set to false for production
+            merchant_id: hashData.merchantId,
+            return_url: `${window.location.origin}/order/${orderId}?status=success`,
+            cancel_url: `${window.location.origin}/order/${orderId}?status=cancel`,
+            notify_url: `${API_BASE}/api/v1/payments/notify`, // Edited: Full path for webhook
+
+            order_id: hashData.orderId || orderId,
+            items: cartItems
+              .map((item) => `${item.name} x ${item.quantity}`)
+              .join(", "),
+            currency: "LKR",
+            amount: totalPrice.toFixed(2),
+            hash: hashData.hash,
+            first_name: user.name.split(" ")[0] || "Customer",
+            last_name: user.name.split(" ").slice(1).join(" ") || "",
+            email: user.email || "",
+            phone: form.phoneNo,
+            address: form.address,
+            city: form.city,
+            country: form.country,
+          };
+
+          // Set callbacks for PayHere
+          window.payhere.onCompleted = async (response: any) => {
+            console.log("Payment completed:", response);
+            // Update order status on backend
+            await fetch(`${API_BASE}/api/v1/order/${orderId}/pay`, { // Edited: Full path
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              credentials: "include",
+              body: JSON.stringify({
+                status: "paid",
+                paymentId: response.payment_id,
+              }),
+            });
+            clearCart();
+            navigate(`/order/${orderId}`);
+          };
+
+          window.payhere.onDismissed = () => {
+            console.log("Payment dismissed");
+            navigate("/cart");
+          };
+
+          window.payhere.onError = (error: any) => {
+            console.error("Payment error:", error);
+            setError("Payment failed. Please try again.");
+          };
+
+          // Start PayHere popup
+          window.payhere.startPayment(paymentConfig);
+        } else {
+          throw new Error("PayHere SDK not loaded. Please refresh the page.");
+        }
       }
     } catch (err: any) {
-      // No change: Enhanced error handling for payment flow
       const msg =
         err?.response?.data?.message || err.message || "Failed to create order";
       if (msg.includes("hash")) {
@@ -228,6 +256,7 @@ export default function Checkout() {
       setLoading(false);
     }
   };
+
   // Use real cart for summary
   const itemsPrice = cartItems.reduce(
     (sum, item) => sum + item.price * item.quantity,
