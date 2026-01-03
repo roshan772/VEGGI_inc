@@ -5,7 +5,13 @@ import { useState } from "react";
 
 export const ProductCard: React.FC<{ product: any }> = ({ product }) => {
   const [isHovered, setIsHovered] = useState(false);
-
+  const imgSrc = product.images?.[0]?.image?.startsWith("http")
+    ? product.images[0].image // loudinary URL
+    : product.images?.[0]?.image
+    ? `${import.meta.env.VITE_API_URL.replace("/api/v1", "")}${
+        product.images[0].image
+      }`
+    : "/assets/placeholder.png";
   return (
     <motion.div
       layout
@@ -20,13 +26,12 @@ export const ProductCard: React.FC<{ product: any }> = ({ product }) => {
       {/* Image Section */}
       <div className="relative overflow-hidden">
         <img
-          src={
-            product.images?.[0]?.image
-              ? `http://localhost:8000${product.images[0].image}`
-              : "/assets/placeholder.png"
-          }
+          src={imgSrc}
           alt={product.name}
           className="w-full h-48 object-cover transition-transform duration-500 group-hover:scale-110"
+          onError={(e) => {
+            e.currentTarget.src = "/assets/placeholder.png";
+          }}
         />
         {/* Quick Wishlist Button */}
         <motion.button

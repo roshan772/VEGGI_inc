@@ -45,6 +45,7 @@ export const ProductDetails = () => {
   const [error, setError] = useState<string | null>(null);
   const nav = useNavigate();
   const { addToCart } = useCart(); // Get addToCart from context
+  
 
   const fetchProduct = async () => {
     if (!id) {
@@ -143,31 +144,47 @@ export const ProductDetails = () => {
           className="grid md:grid-cols-2 gap-8 items-start"
         >
           {/* Image Gallery */}
+          {/* Image Gallery */}
           <div className="space-y-4">
-            <img
-              src={
-                product.images?.[0]?.image
-                  ? `http://localhost:8000${product.images[0].image}`
-                  : "/assets/placeholder.png"
-              }
-              alt={product.name}
-              className="w-full h-96 object-cover rounded-2xl shadow-lg"
-            />
-            {product.images && product.images.length > 1 && (
-              <div className="flex gap-2 overflow-x-auto pb-2">
-                {product.images.slice(1).map((imgObj, idx) => (
+            {(() => {
+              const backendBase = import.meta.env.VITE_API_URL
+                ? import.meta.env.VITE_API_URL.replace("/api/v1", "")
+                : "";
+
+              const getImgSrc = (img?: string) => {
+                if (!img) return "/assets/placeholder.png";
+                if (img.startsWith("http")) return img; // Cloudinary
+                return backendBase ? `${backendBase}${img}` : img; // legacy uploads
+              };
+
+              const mainImage = getImgSrc(product.images?.[0]?.image);
+
+              return (
+                <>
                   <img
-                    key={idx}
-                    src={imgObj.image} // Fixed: .image
-                    alt={`${product.name} ${idx + 1}`}
-                    className="w-20 h-20 object-cover rounded-lg cursor-pointer hover:opacity-80 transition-opacity flex-shrink-0"
-                    onClick={() => {
-                      /* TODO: Set as main image */
+                    src={mainImage}
+                    alt={product.name}
+                    className="w-full h-96 object-cover rounded-2xl shadow-lg"
+                    onError={(e) => {
+                      e.currentTarget.src = "/assets/placeholder.png";
                     }}
                   />
-                ))}
-              </div>
-            )}
+
+                  {product.images && product.images.length > 1 && (
+                    <div className="flex gap-2 overflow-x-auto pb-2">
+                      {product.images.slice(1).map((imgObj, idx) => (
+                        <img
+                          key={idx}
+                          src={getImgSrc(imgObj.image)}
+                          alt={`${product.name} ${idx + 1}`}
+                          className="w-20 h-20 object-cover rounded-lg cursor-pointer hover:opacity-80 transition-opacity flex-shrink-0"
+                        />
+                      ))}
+                    </div>
+                  )}
+                </>
+              );
+            })()}
           </div>
 
           {/* Product Info */}
