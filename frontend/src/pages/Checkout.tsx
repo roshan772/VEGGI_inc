@@ -48,7 +48,7 @@ interface ShippingForm {
   country: string;
 }
 
-// Edited: API_BASE = root URL only (no /api/v1) – append in all calls to avoid double path
+// Edited: API_BASE = root URL only (no /api/v1) – append /api/v1 in all calls to avoid double path
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 export default function Checkout() {
@@ -118,58 +118,63 @@ export default function Checkout() {
       return;
     }
 
-    try {
-      setLoading(true);
-      setError(null);
+    setLoading(true);
+    setError(null);
 
-      // Map cart to ensure 'product' field (copy from 'id')
-      const orderItems = cartItems.map((item) => ({
-        ...item,
-        product: item.id || item.product,
-      }));
-      const itemsPrice = orderItems.reduce(
-        (sum, item) => sum + item.price * item.quantity,
-        0
-      );
-      const shippingPrice = 50;
-      const taxPrice = 0; // Calculate as needed
-      const totalPrice = itemsPrice + shippingPrice + taxPrice;
+    // Map cart to ensure 'product' field (copy from 'id')
+    const orderItems = cartItems.map((item) => ({
+      ...item,
+      product: item.id || item.product,
+    }));
+    const itemsPrice = orderItems.reduce(
+      (sum, item) => sum + item.price * item.quantity,
+      0
+    );
+    const shippingPrice = 50;
+    const taxPrice = 0; // Calculate as needed
+    const totalPrice = itemsPrice + shippingPrice + taxPrice;
 
-      // Edited: Branch logic based on payment method
-      if (paymentMethod === "cod") {
-        // Option 1: Normal COD flow
-        const orderPayload = {
-          orderItems,
-          shippingInfo: form,
-          paymentInfo: { id: "COD", status: "Pending" },
-          itemsPrice,
-          taxPrice,
-          shippingPrice,
-          totalPrice,
-        };
+    // Edited: Branch logic based on payment method
+    if (paymentMethod === "cod") {
+      // Option 1: Normal COD flow
+      const orderPayload = {
+        orderItems,
+        shippingInfo: form,
+        paymentInfo: { id: "COD", status: "Pending" },
+        itemsPrice,
+        taxPrice,
+        shippingPrice,
+        totalPrice,
+      };
 
+      try {
         // Edited: Use API_BASE + /api/v1 for consistency
         const res = await createOrder(orderPayload); // Assume createOrder uses api.post("/api/v1/orders")
         clearCart(); // Clear cart after successful order
         navigate(`/order/${res.order._id}`);
-      } else {
-        // Option 2: PayHere card payment flow
-        const orderPayload = {
-          orderItems,
-          shippingInfo: form,
-          paymentInfo: { id: "PENDING", status: "Pending" },
-          itemsPrice,
-          taxPrice,
-          shippingPrice,
-          totalPrice,
-        };
+      } catch (err: any) {
+        setError(err?.response?.data?.message || "Failed to create order");
+      }
+    } else {
+      // Option 2: PayHere card payment flow
+      const orderPayload = {
+        orderItems,
+        shippingInfo: form,
+        paymentInfo: { id: "PENDING", status: "Pending" },
+        itemsPrice,
+        taxPrice,
+        shippingPrice,
+        totalPrice,
+      };
 
+      try {
         // Step 1 - Create pending order on backend
         const orderRes = await createOrder(orderPayload);
         const orderId = orderRes.order._id;
 
         // Step 2 - Generate PayHere hash (new API call)
-        const hashResponse = await fetch(`${API_BASE}/api/v1/payments/hash`, { // Edited: Full path: root + /api/v1/payments/hash
+        const hashResponse = await fetch(`${API_BASE}/api/v1/payments/hash`, {
+          // Edited: Full path: root + /api/v1/payments/hash
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
@@ -215,7 +220,8 @@ export default function Checkout() {
           window.payhere.onCompleted = async (response: any) => {
             console.log("Payment completed:", response);
             // Update order status on backend
-            await fetch(`${API_BASE}/api/v1/order/${orderId}/pay`, { // Edited: Full path
+            await fetch(`${API_BASE}/api/v1/order/${orderId}/pay`, {
+              // Edited: Full path
               method: "PUT",
               headers: { "Content-Type": "application/json" },
               credentials: "include",
@@ -243,17 +249,19 @@ export default function Checkout() {
         } else {
           throw new Error("PayHere SDK not loaded. Please refresh the page.");
         }
+      } catch (err: any) {
+        const msg =
+          err?.response?.data?.message ||
+          err.message ||
+          "Failed to create order";
+        if (msg.includes("hash")) {
+          setError("Payment setup failed. Please contact support.");
+        } else {
+          setError(msg);
+        }
+      } finally {
+        setLoading(false);
       }
-    } catch (err: any) {
-      const msg =
-        err?.response?.data?.message || err.message || "Failed to create order";
-      if (msg.includes("hash")) {
-        setError("Payment setup failed. Please contact support.");
-      } else {
-        setError(msg);
-      }
-    } finally {
-      setLoading(false);
     }
   };
 
