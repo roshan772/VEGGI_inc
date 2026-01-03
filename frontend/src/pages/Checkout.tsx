@@ -48,7 +48,7 @@ interface ShippingForm {
   country: string;
 }
 
-// Edited: API_BASE = root URL (no /api/v1) – append /api/v1 in all calls for consistency
+// Edited: API_BASE = root URL only (no /api/v1) – append in all calls to avoid double path
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 export default function Checkout() {
@@ -118,24 +118,24 @@ export default function Checkout() {
       return;
     }
 
-    setLoading(true);
-    setError(null);
-
-    // Map cart to ensure 'product' field (copy from 'id')
-    const orderItems = cartItems.map((item) => ({
-      ...item,
-      product: item.id || item.product,
-    }));
-    const itemsPrice = orderItems.reduce(
-      (sum, item) => sum + item.price * item.quantity,
-      0
-    );
-    const shippingPrice = 50;
-    const taxPrice = 0; // Calculate as needed
-    const totalPrice = itemsPrice + shippingPrice + taxPrice;
-
-    // Edited: Branch logic based on payment method
     try {
+      setLoading(true);
+      setError(null);
+
+      // Map cart to ensure 'product' field (copy from 'id')
+      const orderItems = cartItems.map((item) => ({
+        ...item,
+        product: item.id || item.product,
+      }));
+      const itemsPrice = orderItems.reduce(
+        (sum, item) => sum + item.price * item.quantity,
+        0
+      );
+      const shippingPrice = 50;
+      const taxPrice = 0; // Calculate as needed
+      const totalPrice = itemsPrice + shippingPrice + taxPrice;
+
+      // Edited: Branch logic based on payment method
       if (paymentMethod === "cod") {
         // Option 1: Normal COD flow
         const orderPayload = {
