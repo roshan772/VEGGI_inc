@@ -48,6 +48,12 @@ interface ShippingForm {
   country: string;
 }
 
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000/api/v1";
+// API_BASE = https://veggiinc-production.up.railway.app/api/v1 (in production)
+
+const BACKEND_URL = API_BASE.replace("/api/v1", "");
+// BACKEND_URL = https://veggiinc-production.up.railway.app
+
 export default function Checkout() {
   const [form, setForm] = useState<ShippingForm>({
     address: "",
@@ -138,10 +144,7 @@ export default function Checkout() {
       const orderRes = await createOrder(orderPayload);
       const orderId = orderRes.order._id;
 
-      // Edited: Step 2 - Generate PayHere hash (absolute backend URL to fix 404)
-      const BACKEND_URL = "http://localhost:8000"; // Edited: Define backend URL (adjust port if different)
-      const hashResponse = await fetch(`${BACKEND_URL}/api/v1/payments/hash`, {
-        // Edited: Absolute URL (fixes 404 on frontend port)
+      const hashResponse = await fetch(`${API_BASE}/payments/hash`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -161,7 +164,8 @@ export default function Checkout() {
           merchant_id: hashData.merchantId,
           return_url: `${window.location.origin}/order/${orderId}?status=success`,
           cancel_url: `${window.location.origin}/order/${orderId}?status=cancel`,
-          notify_url: `${window.location.origin}/api/v1/payments/notify`,
+          notify_url: `${BACKEND_URL}/api/v1/payments/notify`,
+
           order_id: hashData.orderId || orderId,
           items: cartItems
             .map((item) => `${item.name} x ${item.quantity}`)
@@ -182,7 +186,7 @@ export default function Checkout() {
         window.payhere.onCompleted = async (response: any) => {
           console.log("Payment completed:", response);
           // No change: Update order status on backend
-          await fetch(`${BACKEND_URL}/api/v1/orders/${orderId}/pay`, {
+          await fetch(`${BACKEND_URL}/api/v1/order/${orderId}/pay`, {
             // Edited: Absolute URL for consistency
             method: "PUT",
             headers: { "Content-Type": "application/json" },
