@@ -1,108 +1,136 @@
 import { Link } from "react-router-dom";
-import { ArrowRight, Heart } from "lucide-react"; // Lucide React for icons; npm i lucide-react
-import { motion } from "framer-motion"; // For subtle animations; npm i framer-motion
-import { useState } from "react";
+import { ArrowRight, Heart, Star } from "lucide-react";
+import { motion } from "framer-motion";
+import { useMemo, useState } from "react";
 
 export const ProductCard: React.FC<{ product: any }> = ({ product }) => {
-  const [isHovered, setIsHovered] = useState(false);
- 
+  const [liked, setLiked] = useState(false);
+
+  const image = product?.images?.[0]?.image;
+
+  const rating = useMemo(() => {
+    const r = Number(product?.ratings ?? 0);
+    return Math.max(0, Math.min(5, r));
+  }, [product?.ratings]);
+
+  const inStock = (product?.stock ?? 0) > 0;
+
   return (
     <motion.div
       layout
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0, y: 14 }}
       whileInView={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-      whileHover={{ y: -8, transition: { duration: 0.2 } }}
-      onHoverStart={() => setIsHovered(true)}
-      onHoverEnd={() => setIsHovered(false)}
-      className="group relative bg-white rounded-2xl shadow-sm overflow-hidden hover:shadow-xl transition-all duration-300 border border-gray-100 hover:border-green-200"
+      transition={{ duration: 0.25 }}
+      whileHover={{ y: -6 }}
+      className="group relative overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-sm transition-all hover:shadow-2xl"
     >
-      {/* Image Section */}
-      <div className="relative overflow-hidden">
+      {/* Image */}
+      <div className="relative">
         <img
-          src={product.images?.[0]?.image}
-          alt={product.name}
-          className="w-full h-48 object-cover transition-transform duration-500 group-hover:scale-110"
+          src={image}
+          alt={product?.name}
+          className="h-52 w-full object-cover transition-transform duration-500 group-hover:scale-[1.08]"
+          loading="lazy"
         />
 
-        {/* Quick Wishlist Button */}
-        <motion.button
-          whileTap={{ scale: 0.95 }}
-          className="absolute top-3 right-3 p-2 bg-white/90 hover:bg-white rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-all duration-200"
+        {/* Soft overlay for readability */}
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/45 via-black/10 to-transparent opacity-90" />
+
+        {/* Top badges */}
+        <div className="absolute left-3 top-3 flex items-center gap-2">
+          {product?.category && (
+            <span className="rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-gray-800 shadow-sm backdrop-blur">
+              {product.category}
+            </span>
+          )}
+
+          <span
+            className={`rounded-full px-3 py-1 text-xs font-semibold shadow-sm backdrop-blur ${
+              inStock
+                ? "bg-emerald-500/90 text-white"
+                : "bg-rose-500/90 text-white"
+            }`}
+          >
+            {inStock ? "In Stock" : "Out of Stock"}
+          </span>
+        </div>
+
+        {/* Wishlist */}
+        <button
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
-            // TODO: Add to wishlist logic
+            setLiked((p) => !p);
           }}
+          className="absolute right-3 top-3 grid h-10 w-10 place-items-center rounded-full bg-white/90 shadow-sm backdrop-blur transition-all hover:scale-105 active:scale-95"
+          aria-label="Add to wishlist"
         >
           <Heart
-            className="w-5 h-5 text-gray-600 hover:text-red-500 transition-colors"
-            fill="currentColor"
+            className={`h-5 w-5 transition-colors ${
+              liked ? "text-rose-500" : "text-gray-700"
+            }`}
+            fill={liked ? "currentColor" : "none"}
           />
-        </motion.button>
-        {/* Category Badge */}
-        {product.category && (
-          <motion.span
-            initial={{ opacity: 0, x: -20 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            className="absolute top-3 left-3 bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs font-medium"
-          >
-            {product.category}
-          </motion.span>
-        )}
+        </button>
+
+        {/* Name (on image, premium look) */}
+        <div className="absolute bottom-3 left-3 right-3">
+          <h3 className="line-clamp-1 text-lg font-extrabold text-white drop-shadow">
+            {product?.name}
+          </h3>
+
+          {/* Rating */}
+          <div className="mt-1 flex items-center gap-2">
+            <div className="flex items-center">
+              {[0, 1, 2, 3, 4].map((i) => (
+                <Star
+                  key={i}
+                  className={`h-4 w-4 ${
+                    i < Math.round(rating)
+                      ? "text-yellow-300 fill-current"
+                      : "text-white/50"
+                  }`}
+                />
+              ))}
+            </div>
+            <span className="text-xs text-white/90">
+              {rating.toFixed(1)} • {product?.numOfReviews ?? 0} reviews
+            </span>
+          </div>
+        </div>
       </div>
 
-      {/* Content Section */}
+      {/* Content */}
       <div className="p-5">
-        <h3 className="text-lg font-bold text-gray-800 mb-2 line-clamp-2 group-hover:text-green-700 transition-colors">
-          {product.name}
-        </h3>
-        <p className="text-sm text-gray-500 mb-4 line-clamp-1">
-          {product.description || "Fresh and organic"}
+        <p className="mb-4 line-clamp-2 text-sm text-gray-600">
+          {product?.description || "Fresh and organic"}
         </p>
 
-        {/* Price & Action */}
-        <div className="flex items-center justify-between">
-          <span className="text-xl font-bold text-green-600">
-            Rs. {product.price}
-          </span>
+        <div className="flex items-end justify-between gap-3">
+          <div>
+            <p className="text-xs font-medium text-gray-500">Price</p>
+            <p className="text-2xl font-black text-emerald-600">
+              Rs. {product?.price}
+              <span className="ml-1 text-sm font-semibold text-gray-500">
+                / {product?.unitType ?? "unit"}
+              </span>
+            </p>
+          </div>
+
           <Link
-            to={`/product/${product._id}`}
-            className="flex items-center gap-1 text-sm font-medium text-green-600 hover:text-green-700 transition-colors duration-200"
+            to={`/product/${product?._id}`}
+            className="inline-flex items-center gap-2 rounded-full bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all hover:bg-emerald-700 hover:shadow-md active:scale-[0.98]"
           >
-            View Details
-            <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+            View
+            <ArrowRight className="h-4 w-4" />
           </Link>
         </div>
       </div>
 
-      {/* Hover Overlay for Subtle Glow */}
-      {isHovered && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="absolute inset-0 bg-gradient-to-t from-green-50/50 to-transparent rounded-2xl pointer-events-none"
-        />
-      )}
+      {/* Subtle glow on hover */}
+      <div className="pointer-events-none absolute -inset-24 opacity-0 blur-3xl transition-opacity duration-500 group-hover:opacity-100">
+        <div className="h-64 w-64 rounded-full bg-emerald-200/60" />
+      </div>
     </motion.div>
-  );
-};
-type OrderCardProps = {
-  order: any; // you can replace `any` with a more specific Order type later
-};
-
-export const OrderCard = ({ order }: OrderCardProps) => {
-  return (
-    <div className="p-4 border rounded shadow-sm">
-      <h3 className="font-bold">Order ID: {order?._id ?? "N/A"}</h3>
-      <p>
-        Placed:{" "}
-        {order?.createdAt ? new Date(order.createdAt).toLocaleString() : "—"}
-      </p>
-      <p>Status: {order?.orderStatus ?? order?.status ?? "—"}</p>
-      <p>Total: ₹{order?.totalPrice ?? order?.total ?? "—"}</p>
-      <p>Items: {order?.orderItems?.length ?? order?.items?.length ?? 0}</p>
-    </div>
   );
 };
