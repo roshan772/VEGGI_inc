@@ -8,6 +8,35 @@ Frontend is deployed on Vercel and backend is deployed on Railway with MongoDB A
 - **Frontend (Vercel):** https://veggi-inc.vercel.app  
 - **Backend (Railway API):** https://veggiinc-production.up.railway.app
 
+## Screenshots
+###Login Page
+![Login Page](./images/login.png)
+
+###Sign Up Page
+![Sign Up](./images/signUp.png)
+
+###Banner Page
+![Banner Page](./images/Banner.png)
+
+###Home Page
+![Home Page](./images/Home.png)
+
+###Product Details
+![Product Details](./images/ShoppingCart.png)
+
+###Shopping Cart Page
+![Shopping cart Page](./images/Home.png)
+
+###Checkout
+![Checkout](./images/Checkout.png)
+
+###Admin
+![Manage Product](./images/Manage_product.png)
+
+###Footer Page
+![Footer Page](./images/footer.png)
+
+
 ## Tech Stack
 
 **Frontend**
